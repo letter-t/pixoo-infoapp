@@ -1,0 +1,17 @@
+PIXOO_ADDRESS_MAC=00:00:00:00:00:00
+LATITUDE=00.000000
+LONGITUDE=00.000000
+
+# ALL BELOW ARE OPTIONAL, IN CASE YOU DO NOT WANT TO SIGN UP TO openweathermap.org FOR AN API KEY
+WEATHER_API_KEY=0123456789abcdef0123456789abcdef
+# ^ API key for openweathermap.org
+HIGHLIGHT_HOUR_OFFSET=0
+# ^ how many hours from UTC to offset the highlighted columns in the precipitation chances display. if set to 0, there will be highlights for 7 AM and 7 PM in Eastern Standard Time.
+# ^^ acceptable values are 0, 3, 6, and 9. default value is 0
+HOUR_START_DIM=19
+HOUR_STOP_DIM=6
+# ^ hours of the day to start/stop dimming at. these are in local time
+# ^^ acceptable values are 0 to 23. default values are 19 and 6 (7pm and 6am)
+MIN_BRIGHTNESS=1
+MAX_BRIGHTNESS=100
+# ^ min and max brightness of the display. 0 to 100, defaults are 1 and 100
