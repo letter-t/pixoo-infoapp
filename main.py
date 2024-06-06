@@ -14,11 +14,11 @@ load_dotenv()
 if (getenv('PIXOO_ADDRESS_MAC') is None): print(f".env file cannot be accessed! please ensure that you have a .env file in your pixoo-infoapp folder, and that it is set up properly!\n\nIf you are running this from Docker, make sure that the .dockerignore file does NOT contain \"**/.env\" in it!")
 
 pixooAdressMAC = getenv('PIXOO_ADDRESS_MAC')
-latitude = getenv('LATITUDE')
-longitude = getenv('LONGITUDE')
 
 # all of these env variables below are optional, in case you don't feel like setting up an account with openweathermap.org to get an API key
-weatherAPIkey = getenv('WEATHER_API_KEY') 
+weatherAPIkey = getenv('WEATHER_API_KEY') # from openweathermap.org
+latitude = getenv('LATITUDE') if (getenv('LATITUDE') is not None) else '0' # your latitude
+longitude = getenv('LONGITUDE') if (getenv('LONGITUDE') is not None) else '0' # your longitude
 highlightHourOffset = getenv('HIGHLIGHT_HOUR_OFFSET') if (getenv('HIGHLIGHT_HOUR_OFFSET') is not None) else '0' # this is for the precip chances display, to highlight certain times of day. can be 0, 3, 6, or 9
 hourStartDim = int(getenv('HOUR_START_DIM')) if (getenv('HOUR_START_DIM') is not None) else 19 # hour to start dimming the display at (this is in your local time)
 hourStopDim = int(getenv('HOUR_STOP_DIM')) if (getenv('HOUR_STOP_DIM') is not None) else 6 # hour to stop dimming the display at (this is in your local time)
