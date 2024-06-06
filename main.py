@@ -11,10 +11,19 @@ from pixoo import Pixoo
 
 load_dotenv()
 
+if (getenv('PIXOO_ADDRESS_MAC') is None): print(f".env file cannot be accessed! please ensure that you have a .env file in your pixoo-infoapp folder, and that it is set up properly!\n\nIf you are running this from Docker, make sure that the .dockerignore file does NOT contain \"**/.env\" in it!")
+
 pixooAdressMAC = getenv('PIXOO_ADDRESS_MAC')
 latitude = getenv('LATITUDE')
 longitude = getenv('LONGITUDE')
-weatherAPIkey = getenv('WEATHER_API_KEY')
+
+# all of these env variables below are optional, in case you don't feel like setting up an account with openweathermap.org to get an API key
+weatherAPIkey = getenv('WEATHER_API_KEY') 
+highlightHourOffset = getenv('HIGHLIGHT_HOUR_OFFSET') if (getenv('HIGHLIGHT_HOUR_OFFSET') is not None) else '0' # this is for the precip chances display, to highlight certain times of day. can be 0, 3, 6, or 9
+hourStartDim = int(getenv('HOUR_START_DIM')) if (getenv('HOUR_START_DIM') is not None) else 19 # hour to start dimming the display at (this is in your local time)
+hourStopDim = int(getenv('HOUR_STOP_DIM')) if (getenv('HOUR_STOP_DIM') is not None) else 6 # hour to stop dimming the display at (this is in your local time)
+minBrightness = int(getenv('MIN_BRIGHTNESS')) if (getenv('MIN_BRIGHTNESS') is not None) else 1 # minimum brightness level, from 0-100
+maxBrightness = int(getenv('MAX_BRIGHTNESS')) if (getenv('MAX_BRIGHTNESS') is not None) else 100 # maximum brightness level, from 0-100
 
 connected = False
 
@@ -187,22 +196,28 @@ def pixelNumbers(number, maxLength, colors):
 #############################################################################################################################################
 def fetchWeatherData():
     print('FETCHING WEATHER DATA')
-    api_result = requests.get('https://api.openweathermap.org/data/2.5/weather?lat='+latitude+'&lon='+longitude+'&units=imperial&appid='+weatherAPIkey)
-    api_response = api_result.json()
-    weatherData = [api_response['main']['temp'],
-                   api_response['main']['humidity']]
+    if (weatherAPIkey is None):
+        print('')
+        weatherData = [0,0]
+        precipChances = [0,0,0,0,0,0]
+        weatherTimes = ['11:11:11','11:11:11','11:11:11','11:11:11','11:11:11','11:11:11']
+    else:
+        api_result = requests.get('https://api.openweathermap.org/data/2.5/weather?lat='+latitude+'&lon='+longitude+'&units=imperial&appid='+weatherAPIkey)
+        api_response = api_result.json()
+        weatherData = [api_response['main']['temp'],
+                    api_response['main']['humidity']]
 
-    weatherData[0] = round(weatherData[0])
-    api_result = requests.get('https://api.openweathermap.org/data/2.5/forecast?lat='+latitude+'&lon='+longitude+'&units=imperial&appid='+weatherAPIkey)
-    api_response = api_result.json()
-    precipChances = [0,0,0,0,0,0]
-    weatherTimes = [0,0,0,0,0,0]
-    for i in range(0,6):
-        precipChances[i] = api_response["list"][i]["pop"]
-        weatherTimes[i] = api_response["list"][i]["dt_txt"]
-    print(precipChances) # i like keeping this line on for now
-    print(weatherTimes)  # this one too
-    # keep in mind: weatherTimes is in UTC, which is 6 or 7 hours more than MDT or MST
+        weatherData[0] = round(weatherData[0])
+        api_result = requests.get('https://api.openweathermap.org/data/2.5/forecast?lat='+latitude+'&lon='+longitude+'&units=imperial&appid='+weatherAPIkey)
+        api_response = api_result.json()
+        precipChances = [0,0,0,0,0,0]
+        weatherTimes = [0,0,0,0,0,0]
+        for i in range(0,6):
+            precipChances[i] = api_response["list"][i]["pop"]
+            weatherTimes[i] = api_response["list"][i]["dt_txt"]
+        print(precipChances) # i like keeping this line on for now
+        print(weatherTimes)  # this one too
+        # keep in mind: weatherTimes is in UTC, which is 5 and 4 hours ahead of EST and EDT, respectively
 
     precipArr[0:4,0:6,0:3] = 0 # making an array of binary numbers for each 3-hour precip chance
     colorsBright = [[177,198,220],
@@ -218,12 +233,13 @@ def fetchWeatherData():
         precipChances[i] = list(precipChances[i]) # convert string to array of letters
         for j in range(0,len(precipChances[i])):
             if precipChances[i][j] == '1':
-                if weatherTimes[i][-8:] in ['06:00:00', '18:00:00']: # in DST, this is 12:00:00, AM or PM. in MST, this is 11:00:00, AM or PM.
+                if weatherTimes[i][-8:] in [f'0{highlightHourOffset}:00:00', f'0{str(int(highlightHourOffset)+12)}:00:00']:
+                    # for goldLineHourOffset = 6, in EST, this is 1:00:00, AM or PM. in EDT, this is 2:00:00, AM or PM.
                     precipChances[i][j] = colorsBright[2]
                 else:
                     precipChances[i][j] = colorsBright[i%2]
             else:
-                if weatherTimes[i][-8:] in ['06:00:00', '18:00:00']:
+                if weatherTimes[i][-8:] in [f'0{highlightHourOffset}:00:00', f'0{str(int(highlightHourOffset)+12)}:00:00']:
                     precipChances[i][j] = colorsDark[2]
                 else:
                     precipChances[i][j] = colorsDark[i%2]
@@ -311,24 +327,6 @@ def minesweeper(msGrid, edgeList, turn):
         turn = 0
     else:
         turn += 1
-        #TEMPORARY TILE CHOOSER!!!
-        """
-        [y, x, z] = [rnd.randint(0,10), rnd.randint(0,8), rnd.randint(0,14)]
-        loops = 0
-        while (msGrid[y,x] > 9) & (loops < limit):
-            #choose new tile until it's undiscovered
-            loops += 1
-            [y, x] = [rnd.randint(0,10), rnd.randint(0,8)]
-        if (z != 0):
-            #if z isn't 0, guarantee a mineless tile. yes this is cheating
-            loops = 0
-            while (msGrid[y,x] >= 9) & (loops < limit):
-                loops += 1
-                [y, x] = [rnd.randint(0,10), rnd.randint(0,8)]
-        msGrid[12,0:2] = [y,x]
-        """
-        
-        # NON-TEMPORARY TILE CHOOSER!!!!!
         cheatFactor = 1
         #^ 1 is normal probability, 2 is 1/2 prob, 3 is 1/3, etc
         
@@ -493,7 +491,6 @@ def tileSelect(msGrid,y,x):
 
     #print(edgeList)
     #print(len(edgeList))
-    #print(probabilityCalc(msGrid))
     
     return msGrid
 
@@ -541,12 +538,6 @@ def probabilityCalc(msGrid):
     [ret2, freebieList] = ruleTwo(msGridExtra, localFreebieList)
     ruleFour(msGridExtra)
 
-    #print('msGridExtra[1:12,1:10]\n',msGridExtra[1:12,1:10])
-    #print('localEdgeList\n',localEdgeList)
-    #print('localFreebieList\n',localFreebieList)
-    #print('localMinesList\n',localMinesList)
-    #print('msProbabilities\n',msProbabilities)
-
     edgeList.sort(key=lambda yx: (yx[0], yx[1]))
 
     if len(edgeList) > 0:
@@ -562,24 +553,8 @@ def probabilityCalc(msGrid):
                     else:
                         msProbabilities[i,j] = round(remainingMines / (nonEdgeCount + edgeCount) * 100)
 
-        # this part doesn't work.
-        # i'm ignoring it, and instead setting the same probability for all uncalculated tiles
-        """
-        #print('knownMines\n',knownMines)
-        #print('freebieList\n',freebieList)
-        for i in range(0,11):
-            for j in range(0,9):
-                localMineCount = 0
-                for k in range(0,8):
-                    [y1, x1] = adjacents[k][0:2]
-                    if knownMines.count([i+y1,j+x1]) >= 1:
-                        localMineCount += 1
-                localMinesList[i,j] = localMineCount
-                
-        isMineList = np.zeros((len(edgeList)), dtype=np.uint8)
-        generateArrangements(msGridExtra, isMineList, localMinesList, 0, edgeArr)
-        probabilityCalculation(edgeArr, msGridExtra, nonEdgeCount)
-        """
+        # i tried calculating probability for all remaining uncalculated tiles, but it was too much of a pain to figure out so i scrapped it.
+        # instead it just gives the same probability for all uncalculated tiles :)
     else:
         remainingMines = msGrid[12,2] - len(knownMines)
         for i in range(0,11):
@@ -595,16 +570,11 @@ def probabilityCalc(msGrid):
                 fakeGrid[i,j] = msGrid[i,j] - 10
             else:
                 fakeGrid[i,j] = msProbabilities[i,j]
-    #print('fakeGrid')
-    #print(fakeGrid)
-    #print('msProbabilities')
-    #print(msProbabilities)
-    #time.sleep(10)
     
     return msProbabilities
 
-# if a tile is satisfied by knowing how many surrounding mines there are:
 #############################################################################################################################################
+# if a tile is satisfied by knowing how many surrounding mines there are:
 def ruleOne(msGridExtra, localMinesList):
     ret = False
     for i in range(1,12):
@@ -658,8 +628,8 @@ def ruleTwo(msGridExtra, localFreebieList):
                                     ret = True
     return [ret, freebieList]
 
-
 #############################################################################################################################################
+# this is horrendous, oh my GOD those indents
 def ruleThree(msGridExtra, localMinesList, localFreebieList):
     # for flagging mines by mimicking arrangement checking.
     # how this works:
@@ -826,254 +796,39 @@ def desigFreebie(localFreebieList, y, x):
 
 
 #############################################################################################################################################
-def generateArrangements(msGridExtra, isMineList, localMinesList, index, edgeArr):
-    #this thing is broken somehow, fix it
-    # for every edge tile, try to place a mine as soon as possible
-    # if it doesn't fit, move on to the next edge tile, until 
-    # for every successful array, lock the last mine's previous position
-    # if a mine cannot find a spot on the board, the board is failed,
-    #   and the second to last mine gets locked out
-    # the first mine that has to move from these changes unlocks every following edge tile
-    fakeGrid = np.zeros((11,9), dtype=np.uint8)
-    fakeGrid[0:11,0:9] = 99
-    for i in range(0,11):
-        for j in range(0,9):
-            if msGrid[i,j] >= 10:
-                fakeGrid[i,j] = msGrid[i,j] - 10
-    
-    tileLocks = np.ones((len(isMineList)), dtype=bool)
-    for i in range(0,len(edgeList)):
-        [y, x] = edgeList[i][0:2]
-        if (knownMines.count([y,x])) >= 1:
-            isMineList[i] = 1
-            tileLocks[i] = True
-        if (freebieList.count([y,x])) >= 1:
-            isMineList[i] = 0
-            tileLocks[i] = False
-    pattern = isMineList
-
-    #print(np.array_equal(tileLocks[:], (isMineList == 1)))
-    while not (np.array_equal(tileLocks[:], (isMineList == 1))):
-        #tileLocks[:] = True
-        pattern[:] = 2
-        for i in range(0,len(edgeList)):
-            [y, x] = edgeList[i][0:2]
-            if (knownMines.count([y,x])) >= 1:
-                pattern[i] = 1
-            #if (freebieList.count([y,x])) >= 1:
-                #tileLocks[i] = False
-
-        #print('tileLocks:\n',tileLocks)
-        #print('isMineList:\n',isMineList)
-        #print('\nedgeList:\n',edgeList)
-        for i in range(0,len(isMineList)):
-            [y, x] = edgeList[i][0:2]
-            if pattern[i] == 2:
-                if tileLocks[i]:
-                    if canBeMine(msGridExtra, pattern, localMinesList, x, y):
-                        #print('[y, x], i = ',[y, x],i)
-                        #print('pattern:\n',pattern)
-                        #print('tileLocks:\n',tileLocks)
-                        pattern[i] = 1 #set a mine
-                    elif canNotBeMine(msGridExtra, pattern, localMinesList, x, y):
-                        pattern[i] = 0 #set a safe spot
-                    else:
-                        #print('\ni:',i)
-                        #print('IMPOSSIBLE ARRAY')
-                        idx = np.where(pattern == 1)[0][-1]
-                        tileLocks[idx] = False
-                        if idx < len(tileLocks):
-                            tileLocks[idx+1:] = True
-                        break
-                else:
-                    if not canBeMine(msGridExtra, pattern, localMinesList, x, y):
-                        if not canNotBeMine(msGridExtra, pattern, localMinesList, x, y):
-                            #print('\ni:',i)
-                            #print('IMPOSSIBLE ARRAY')
-                            idx = np.where(pattern == 1)[0][-1]
-                            tileLocks[idx] = False
-                            if idx < len(tileLocks):
-                                tileLocks[idx+1:] = True
-                            break
-            if pattern[i] == 1:
-                fakeGrid[y,x] = 20
-            elif pattern[i] == 0:
-                fakeGrid[y,x] = msGrid[y,x] + 10
-            #else:
-                #print('\n\n\nAYO [y,x] is FUCKED UP  ', [y,x])
-    
-        #print('fakeGrid:\n',fakeGrid)
-        edgeArr.append(pattern)
-        idx = np.where(pattern == 1)[0][-1]
-        tileLocks[idx] = False
-        if idx < len(tileLocks):
-            tileLocks[idx+1:] = True
-        #print('idx:',idx)
-        #print('tileLocks:\n',tileLocks)
-        #print('pattern:\n',pattern)
-        time.sleep(30)
-    #print('\nedgeArr\n',edgeArr)
-    #print('len(edgeArr)\n',len(edgeArr))
-    time.sleep(60)
-
-
-#############################################################################################################################################
-def canBeMine(msGridExtra, pattern, localMinesList, x, y):
-    for i in range(0,8):
-        [y1, x1] = adjacents[i][0:2]
-        if (y+y1 not in [-1,11]) & (x+x1 not in [-1,9]):
-            if msGridExtra[y+y1+1,x+x1+1] >= 10:
-                minecount = 0
-                
-
-    
-    #print('localMinesList\n',localMinesList)
-    for i in range(0,8):
-        [y1, x1] = adjacents[i][0:2]
-        if (y+y1 not in [-1,11]) & (x+x1 not in [-1,9]):
-            if msGridExtra[y+y1+1,x+x1+1] >= 10:
-                count = 0
-                #print()
-                #print('[y, x]:',[y,x])
-                #print('[y+y1, x+x1]:',[y+y1,x+x1])
-                for j in range(0,8):
-                    [y2, x2] = adjacents[j][0:2]
-                    if (y+y1+y2 not in [-1,11]) & (x+x1+x2 not in [-1,9]):
-                        #print('[y+y1+y2, x+x1+x2]:',[y+y1+y2,x+x1+x2])
-                        if (edgeList.count([y+y1+y2,x+x1+x2])) >= 1:
-                            idx = edgeList[:].index([y+y1+y2,x+x1+x2])
-                            #print('idx:',idx)
-                            if pattern[idx] == 1:
-                                count += 1
-                                #print('count:',count)
-                #print('tile number, count:',(msGridExtra[y+y1+1,x+x1+1] - 10),count)
-                if (msGridExtra[y+y1+1,x+x1+1] - 10) <= count:
-                    return False
-    return True
-
-
-#############################################################################################################################################
-def canNotBeMine(msGridExtra, pattern, localMinesList, x, y):
-    for i in range(0,8):
-        [y1, x1] = adjacents[i][0:2]
-        if (y+y1 not in [-1,11]) & (x+x1 not in [-1,9]):
-            if msGridExtra[y+y1+1,x+x1+1] >= 10:
-                count1 = 0
-                count2 = 0
-                #print()
-                #print('[y, x]:',[y,x])
-                #print('[y+y1, x+x1]:',[y+y1,x+x1])
-                #choose an adjacent tile, get it's surrounding tiles, see if it works
-                for j in range(0,8):
-                    [y2, x2] = adjacents[j][0:2]
-                    if (y+y1+y2 not in [-1,11]) & (x+x1+x2 not in [-1,9]):
-                        #print('[y+y1+y2, x+x1+x2]:',[y+y1+y2,x+x1+x2])
-                        if (edgeList.count([y+y1+y2,x+x1+x2])) >= 1:
-                            idx = edgeList[:].index([y+y1+y2,x+x1+x2])
-                            #print('idx:',idx)
-                            if pattern[idx] == 0:
-                                count1 += 1
-                                #print('count1:',count1)
-                            if pattern[idx] == 2:
-                                count2 += 1
-                                #print('count2:',count2)
-                if count2 == 1:
-                    #would there be problems if this 2 were a 0 instead?
-                    
-                    #print('tile number, adj edges, count, adj freebies:',(msGridExtra[y+y1+1,x+x1+1] - 10), localEdgeList[y+y1,x+x1], count, localFreebieList[y+y1,x+x1])
-                    #print(localEdgeList)
-                    #print('[y+y1, x+x1]:',[y+y1,x+x1])
-
-                    # is the tile number >= the known number of adjacent mines
-                    # if (msGridExtra[y+y1+1,x+x1+1] - 10) >= localEdgeList[y+y1,x+x1] - count - localFreebieList[y+y1,x+x1]:
-                    # ^ THIS LINE IS COMMENTED BECAUSE count IS UNDEFINED. PLEASE FIX IF THIS IS EVER USED
-                        return True
-    return False
-
-
-#############################################################################################################################################
-def probabilityCalculation(edgeArr, msGridExtra, nonEdgeCount):
-    # Store where mines are placed in each arrangement and find the
-    #   total number of arrangements
-    arrCount = 0
-    for k in range(0,len(edgeArr)):
-        minesPlaced = 0
-        for i in range(0,len(edgeArr[k])):
-            if edgeArr[k][i] == 100:
-                minesPlaced += 1
-        remainingMines = msGrid[12,2] - minesPlaced - len(knownMines)
-        #print(remainingMines, msGrid[12,2], minesPlaced, len(knownMines))
-        #print('remainingMines, Total Mines, minesPlaced, len(knownMines)')
-        if (remainingMines >= 0) & (remainingMines <= nonEdgeCount):
-            nonEdgeCombos = combinations(nonEdgeCount, remainingMines)
-            #print('nonEdgeCombos',nonEdgeCombos)
-            for i in range(0,len(edgeArr[k])):
-                if edgeArr[k][i] == 1:
-                    #
-                    msArr[edgeList[i][0],edgeList[i][1]] += nonEdgeCombos
-            arrCount += nonEdgeCombos
-            for i in range(0,11):
-                for j in range(0,9):
-                    if msGridExtra[i+1,j+1] < 10:
-                        if (edgeList.count([i,j])) == 0:
-                            msArr[i,j] += remainingMines / nonEdgeCount * nonEdgeCombos
-
-    #print('arrCount',arrCount)
-    # Calculate probability of each cell by dividing the number of
-    #   arrangements with mines in each cell by total arrangements
-    for i in range(0,11):
-        for j in range(0,9):
-            if msProbabilities[i,j] == 101:
-                if (edgeList.count([i,j])) >= 1:
-                    msProbabilities[i,j] = round(msArr[i,j] / arrCount * 100)
-                    # arrCount is likely wrong because of generateArrangements
-                else:
-                    if msGridExtra[i+1,j+1] < 10:
-                        msProbabilities[i,j] = round(msArr[i,j] / arrCount * 100)
-                        # arrCount is likely wrong because of generateArrangements
-
-
-#############################################################################################################################################
-def combinations(n, r):
-    if (n == r) | (r == 0):
-        return 1
+def adjustBrightness():
+    if hourStartDim < hourStopDim:
+        if (datetime.now().hour >= hourStartDim) | (datetime.now().hour <= hourStopDim):
+            pixoo16.set_system_brightness(minBrightness)
+        else:
+            pixoo16.set_system_brightness(maxBrightness)
     else:
-        if (r < n - r):
-            r = n - r
-        return productRange(r + 1, n) / productRange(1, n - r)
-
-
-#############################################################################################################################################
-def productRange(a, b):
-    prd = np.dtype('float128')
-    prd = a
-    a += 1
-    while (a < b):
-        #print(prd)
-        prd *= a
-        a += 1
-    return prd
+        if (datetime.now().hour >= hourStartDim) & (datetime.now().hour <= hourStopDim):
+            pixoo16.set_system_brightness(minBrightness)
+        else:
+            pixoo16.set_system_brightness(maxBrightness)
 
 
 #############################################################################################################################################
 # MAIN #
 #############################################################################################################################################
-setWindowTitle("Pixoo Script")
+print(f"pixooAdressMAC: {pixooAdressMAC}")
+print(f"latitude: {latitude}")
+print(f"longitude: {longitude}")
+print(f"weatherAPIkey: {weatherAPIkey}")
+print(f"highlightHourOffset: {highlightHourOffset}")
+print(f"hourStartDim: {hourStartDim}")
+print(f"hourStopDim: {hourStopDim}")
 weatherData = [0,0]
 [weatherData, precipArr] = fetchWeatherData()
 try:
-    if (datetime.now().hour <= 5) | (datetime.now().hour >= 20):
-        pixoo16.set_system_brightness(1)
-    else:
-        pixoo16.set_system_brightness(100)
-    pixoo16.draw_pic('amogloss.png') #meme
+    adjustBrightness()
+    pixoo16.draw_pic('amogloss.png') # shitty meme
 except OSError as err:
     print("OS error:", err)
     connected = pixoo16.check_connection(connected)
     if connected == False:
         print("CONNECTION ERROR")
-        #system('popup.bat')
-        #system("msdt -skip TRUE -id BluetoothDiagnostic -ep CortanaSearch")
 while True:
     lastSubSecond = time.time()
     time.sleep(0.001)
@@ -1083,10 +838,7 @@ while True:
             #t = time.time()
             if (time.time()%300 - lastSubSecond%300) < 0:
                 [weatherData, precipArr] = fetchWeatherData()
-                if (datetime.now().hour <= 7) | (datetime.now().hour >= 22):
-                    pixoo16.set_system_brightness(1)
-                else:
-                    pixoo16.set_system_brightness(100)
+                adjustBrightness()
             [msGrid, turn] = drawframe(weatherData, precipArr, msGrid, turn) # this saves the next frame
             pixoo16.draw_pic('frame_current.png')
             #print(time.time() - t,'elapsed time to compute')
@@ -1096,4 +848,3 @@ while True:
             connected = pixoo16.check_connection(connected)
             if connected == False:
                 print("CONNECTION ERROR")
-                #system("msdt -skip TRUE -id BluetoothDiagnostic -ep CortanaSearch")
