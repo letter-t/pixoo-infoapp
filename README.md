@@ -36,7 +36,7 @@ From here, you'll need to fill out some parts of the `.env` file. Open `.env` an
 All that you *really* need to change in the `.env` file is the PIXOO_ADDRESS_MAC value. This is the MAC address for your Pixoo. I used a third-party application to do this; it should look like `01:23:45:67:89:AB`.
 
 Once you've changed that value and saved the `.env` file, you can run the app by opening `launcher.bat`. It should open a `cmd` window that looks like this: 
-![image](https://github.com/letter-t/pixoo-infoapp/assets/83261720/972ec07b-f2e5-4bb8-b546-b00a1d2b6a25)
+![image](https://github.com/letter-t/pixoo-infoapp/assets/83261720/827a88f2-d5d4-4297-8ebe-e4185c2164d8)
 
 To stop the app, simply close the `cmd` window.
 
