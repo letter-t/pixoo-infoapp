@@ -12,7 +12,7 @@ If the device you're trying to run this on can't use bluetooth, get a bluetooth 
 
 Open the command prompt (cmd) on Windows and run the following commands.
 
-Clone Vencord:
+Clone the repo:
 
 ```shell
 git clone https://github.com/letter-t/pixoo-infoapp
