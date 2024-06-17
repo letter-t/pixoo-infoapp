@@ -797,7 +797,7 @@ def desigFreebie(localFreebieList, y, x):
 
 #############################################################################################################################################
 def adjustBrightness():
-    if hourStartDim < hourStopDim:
+    if hourStartDim > hourStopDim:
         if (datetime.now().hour >= hourStartDim) | (datetime.now().hour <= hourStopDim):
             pixoo16.set_system_brightness(minBrightness)
         else:
